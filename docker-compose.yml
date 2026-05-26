@@ -1,0 +1,70 @@
+# docker-compose.yml de SmartBite
+# El frontend Next.js se levanta por separado con: npm run dev
+# Este compose levanta: MySQL, Backend Jakarta EE, phpMyAdmin
+
+services:
+
+  # ── Backend Jakarta EE (REST API) ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smartbite_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: smartbite_db
+      DB_USER: root
+      DB_PASSWORD: root
+    networks:
+      - red_smartbite
+
+  # ── MySQL ───────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_smartbite
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: smartbite_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - red_smartbite
+
+  # ── phpMyAdmin ──────────────────────────────────────────────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin_smartbite
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    depends_on:
+      - mysql
+    networks:
+      - red_smartbite
+
+volumes:
+  mysql_data:
+
+networks:
+  red_smartbite:
+    driver: bridge
